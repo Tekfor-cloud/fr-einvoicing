@@ -441,7 +441,7 @@ class FrEinvoicingFlow(models.Model):
     def _send(self, session, result):
         self.ensure_one()
         log_obj = self.env["fr.einvoicing.log"]
-        if self.no_send_until_date and self.no_send_until_date < date.today():
+        if self.no_send_until_date and self.no_send_until_date > date.today():
             msg = (
                 f"Skip sending of flow {self.display_name} ID {self.id} "
                 f"because the sending date ({self.no_send_until_date}) has not yet passed"
