@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import time
+from datetime import date
 from pprint import pformat
 
 from markupsafe import Markup
@@ -144,6 +145,7 @@ class FrEinvoicingFlow(models.Model):
     updated_at = fields.Datetime(
         readonly=True, help="Last update of the flow"
     )  # UpdatedAt
+    no_send_until_date = fields.Date()
     file_bin = fields.Binary(string="File", readonly=True)
     filename = fields.Char(readonly=True)
     state = fields.Selection(
@@ -439,6 +441,13 @@ class FrEinvoicingFlow(models.Model):
     def _send(self, session, result):
         self.ensure_one()
         log_obj = self.env["fr.einvoicing.log"]
+        if self.no_send_until_date and self.no_send_until_date < date.today():
+            msg = (
+                f"Skip sending of flow {self.display_name} ID {self.id} "
+                f"because the sending date ({self.no_send_until_date}) has not yet passed"
+            )
+            log_obj._info_log(result, msg)
+            return
         if self.direction != "out":
             msg = (
                 f"Skip sending of flow {self.display_name} ID {self.id} "
