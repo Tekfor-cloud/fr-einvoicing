@@ -49,7 +49,9 @@ class FrEinvoicingFlow(models.Model):
     # I don't usually do that, but I think it's the best option for such
     # a technical object that users won't use much
     identifier = fields.Char(readonly=True, tracking=True)  # flowId
-    company_id = fields.Many2one("res.company", ondelete="cascade", required=True)
+    company_id = fields.Many2one(
+        "res.company", ondelete="cascade", required=True, readonly=True
+    )
     direction = fields.Selection(
         [  # flowDirection
             ("in", "In"),
@@ -145,7 +147,9 @@ class FrEinvoicingFlow(models.Model):
     updated_at = fields.Datetime(
         readonly=True, help="Last update of the flow"
     )  # UpdatedAt
-    no_send_until_date = fields.Date()
+    no_send_until_date = fields.Date(
+        help="The flow will not be send until the date is passed. Unset the date will disable the condition"
+    )
     file_bin = fields.Binary(string="File", readonly=True)
     filename = fields.Char(readonly=True)
     state = fields.Selection(
