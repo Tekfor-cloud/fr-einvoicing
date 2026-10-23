@@ -1357,7 +1357,7 @@ class FrEinvoicingFlow(models.Model):
         self.ensure_one()
         assert self.move_id
         assert self.move_id.state == "draft"
-        self.message_post(
+        self.sudo().message_post(
             body=Markup(
                 self.env._(
                     "Deleting the draft Vendor Bill <strong>%s</strong>.",
