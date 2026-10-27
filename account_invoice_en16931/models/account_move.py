@@ -11,6 +11,7 @@ from pprint import pformat
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
+from lxml import etree
 from pypdf import PdfWriter
 from pypdf.generic import NameObject
 
@@ -25,7 +26,7 @@ facturx_logger = logging.getLogger("factur-x")
 facturx_logger.setLevel(logger.getEffectiveLevel())
 
 try:
-    from facturx import generate_from_file, generate_xml
+    from facturx import generate_from_file, generate_xml, generate_xmp_object
 except (OSError, ImportError) as err:
     logger.debug("Cannot import facturx. Error details below.")
     logger.debug(err)
@@ -1007,6 +1008,50 @@ class AccountMove(models.Model):
         if b64:
             invoice_bin = base64.encodebytes(invoice_bin)
         return invoice_bin, data_dict
+
+    def _qweb_pdfa_prepare_metadata(self):
+        self.ensure_one()
+        metadata = {
+            "title": self.display_name,
+            "author": self.company_id.name,
+            "subject": self.move_type == "out_refund"
+            and self.env._("Credit Note")
+            or self.env._("Invoice"),
+            "keywords": self.env._("Invoice"),
+            # producer and creator_tool are later re-written to "Odoo"
+            # so it's not useful to set it to from odoo_pdf_reader.metadata
+            "producer": "Odoo",
+            "creator_tool": "Odoo",
+            "timestamp_dt": fields.Datetime.now(),
+        }
+        return metadata
+
+    def _qweb_pdfa_generate_xmp_bytes(self, metadata_dict):
+        self.ensure_one()
+        xmp_date_str = metadata_dict["timestamp_dt"].strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        metadata_dict.update(
+            {
+                "pdfa3_flavor": "A",
+                "timestamp": xmp_date_str,
+            }
+        )
+        xml_root = generate_xmp_object(metadata_dict)
+        xml_bytes = etree.tostring(xml_root, pretty_print=True, encoding="UTF-8")
+        return xml_bytes
+
+    def _qweb_pdfa_generate_txt_metadata(self, metadata_dict, odoo_writer):
+        timestamp_str = metadata_dict["timestamp_dt"].strftime("D:%Y%m%d%H%M%S+00'00'")
+        txt_metadata = {
+            "/Author": metadata_dict["author"],
+            "/Title": metadata_dict["title"],
+            "/Subject": metadata_dict["subject"],
+            "/Keywords": metadata_dict["keywords"],
+            "/Producer": metadata_dict["producer"],
+            "/Creator": metadata_dict["creator_tool"],
+            "/CreationDate": timestamp_str,
+            "/ModDate": timestamp_str,
+        }
+        odoo_writer.add_metadata(txt_metadata)
 
     @api.model
     def _get_specific_saxon_server_url(self):
